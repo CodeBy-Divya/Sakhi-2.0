@@ -20,6 +20,7 @@ logger = logging.getLogger("sakhi.api")
 # ── Global resources ──────────────────────────────────────────────────────────
 resources: SakhiResources = None
 pipeline: CompiledStateGraph = None
+init_error: str = None
 
 
 def _load_resources():
@@ -34,14 +35,14 @@ def _load_resources():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Modern FastAPI lifespan event handler (replaces deprecated on_event)."""
-    global resources, pipeline
+    global resources, pipeline, init_error
     try:
         # Run heavy initialization in thread pool — never blocks the event loop
         loop = asyncio.get_running_loop()
         resources, pipeline = await loop.run_in_executor(None, _load_resources)
     except Exception as e:
-        logger.error(f"❌ Failed to initialize Sakhi resources: {e}")
-        raise
+        init_error = str(e)
+        logger.warning(f"⚠️ Sakhi pipeline uninitialized: {e}")
     yield
     # Cleanup (if needed in future)
     logger.info("🛑 Sakhi API shutting down.")
@@ -101,7 +102,8 @@ async def chat_endpoint(request: ChatRequest):
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
     if not pipeline:
-        raise HTTPException(status_code=503, detail="RAG pipeline is still initializing. Try again in a moment.")
+        detail_msg = f"RAG pipeline is not ready: {init_error}" if init_error else "RAG pipeline is still initializing. Try again in a moment."
+        raise HTTPException(status_code=503, detail=detail_msg)
 
     try:
         logger.info(f"  ❓ API received query: {request.query}")
@@ -160,7 +162,8 @@ async def chat_endpoint(request: ChatRequest):
 @app.get("/health")
 async def health_check():
     return {
-        "status":   "healthy" if pipeline is not None else "initializing",
+        "status":   "healthy" if pipeline is not None else ("misconfigured" if init_error else "initializing"),
+        "error":    init_error,
         "model":    "qwen/qwen3-embedding-8b",
         "llm":      "llama-3.3-70b-versatile",
         "version":  "2.0.0",
