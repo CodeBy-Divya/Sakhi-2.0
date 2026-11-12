@@ -14,7 +14,6 @@ sakhi_env/
 # Generated / derived data (rebuild with migrate_embeddings.py)
 data/chroma_db/
 data/processed/
-data/txt/
 
 # Python cache
 __pycache__/
