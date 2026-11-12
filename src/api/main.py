@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
     global resources, pipeline
     try:
         # Run heavy initialization in thread pool — never blocks the event loop
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         resources, pipeline = await loop.run_in_executor(None, _load_resources)
     except Exception as e:
         logger.error(f"❌ Failed to initialize Sakhi resources: {e}")
@@ -55,12 +55,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ── CORS — only allow known origins ──────────────────────────────────────────
-ALLOWED_ORIGINS = [
-    "https://sakhi-alpha.vercel.app",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+# ── CORS — configurable via ALLOWED_ORIGINS env var ──────────────────────────
+raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+if raw_origins.strip():
+    ALLOWED_ORIGINS = [o.strip() for o in raw_origins.split(",") if o.strip()]
+else:
+    ALLOWED_ORIGINS = [
+        "https://sakhi-alpha.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
@@ -106,11 +112,15 @@ async def chat_endpoint(request: ChatRequest):
             for msg in request.chat_history
         ]
 
-        # Count trailing clarification questions
+        # Count trailing clarification questions (ignoring initial assistant greeting)
         clarification_count = 0
         for msg in reversed(history):
-            if msg["role"] == "assistant" and msg["content"].rstrip().endswith("?"):
-                clarification_count += 1
+            content = msg.get("content", "").strip()
+            if msg["role"] == "assistant":
+                if "Namaste" in content and "How can I assist" in content:
+                    continue
+                if content.endswith("?"):
+                    clarification_count += 1
             elif msg["role"] == "user":
                 continue
             else:
@@ -136,7 +146,7 @@ async def chat_endpoint(request: ChatRequest):
         }
 
         # ✅ Run pipeline in thread pool — does NOT block the async event loop
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(None, pipeline.invoke, initial_state)
 
         answer = result.get("answer", "I'm sorry, I could not generate an answer.")

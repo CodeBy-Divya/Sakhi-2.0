@@ -123,25 +123,27 @@ Sakhi's vector database contains **40+ Indian law PDFs** covering:
 
 ### Prerequisites
 
-- **Python 3.11+**
+- **Python 3.10+**
 - **Node.js 18+**
 - **Groq API Key** (free at [console.groq.com](https://console.groq.com))
+- **OpenRouter API Key** (for embeddings, free at [openrouter.ai/keys](https://openrouter.ai/keys))
 
 ### 1. Clone & Setup Backend
 
 ```bash
-git clone https://github.com/AbhiGupta1310/Sakhi.git
-cd Sakhi
+git clone https://github.com/CodeBy-Divya/Sakhi-2-.git
+cd Sakhi-2-
 
 # Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Set your API key
-echo "GROQ_API_KEY=your_key_here" > .env
+# Copy and configure your environment variables
+cp .env.example .env  # Windows: copy .env.example .env
+# Edit .env with your GROQ_API_KEY and OPENROUTER_API_KEY
 ```
 
 ### 2. Setup Frontend
@@ -155,11 +157,14 @@ cd ..
 ### 3. Run Everything
 
 ```bash
-# Option A: Use the automated script
+# Option A: Windows PowerShell automated script
+.\run_app.ps1
+
+# Option B: Linux / macOS automated script
 chmod +x run_app.sh
 ./run_app.sh
 
-# Option B: Manual start
+# Option C: Manual start
 # Terminal 1 -- Backend
 python -m src.api.main
 

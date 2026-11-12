@@ -3,13 +3,17 @@ import os
 import shutil
 import tempfile
 
-os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN")
+from pathlib import Path
+
+hf_token = os.getenv("HF_TOKEN")
+if not hf_token:
+    print("⚠️  Warning: HF_TOKEN is not set in environment.")
 
 from huggingface_hub import HfApi
 
-api = HfApi()
-repo_id = "Hush04/sakhi-api"
-src = "/Users/abhigupta/Desktop/Sakhi-1"
+api = HfApi(token=hf_token)
+repo_id = os.getenv("HF_SPACE_ID", "Hush04/sakhi-api")
+src = str(Path(__file__).resolve().parent)
 
 # Create a clean temp copy WITHOUT .git and .gitattributes (removes LFS tracking)
 tmp = tempfile.mkdtemp()
