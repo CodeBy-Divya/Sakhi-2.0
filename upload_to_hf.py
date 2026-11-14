@@ -12,7 +12,7 @@ if not hf_token:
 from huggingface_hub import HfApi
 
 api = HfApi(token=hf_token)
-repo_id = os.getenv("HF_SPACE_ID", "Hush04/sakhi-api")
+repo_id = os.getenv("HF_SPACE_ID", "CodeBy-Divya/sakhi-api")
 src = str(Path(__file__).resolve().parent)
 
 # Create a clean temp copy WITHOUT .git and .gitattributes (removes LFS tracking)

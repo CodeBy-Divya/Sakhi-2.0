@@ -156,6 +156,17 @@ async def chat_endpoint(request: ChatRequest):
 
     except Exception as e:
         logger.error(f"❌ Error processing query: {e}")
+        err_msg = str(e)
+        if any(term in err_msg for term in ["401", "API Key", "Authentication", "api_key", "invalid_api_key", "Unauthorized"]):
+            return ChatResponse(
+                answer=(
+                    "Namaste! 🙏\n\n"
+                    "To enable my full AI legal intelligence and vector search, please configure your API keys in the `.env` file:\n\n"
+                    "- **GROQ_API_KEY**: Get a free key at [console.groq.com](https://console.groq.com)\n"
+                    "- **OPENROUTER_API_KEY**: Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys)\n\n"
+                    "Once added to `.env`, restart the app and I'll be ready to assist you! ✨"
+                )
+            )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -165,7 +176,7 @@ async def health_check():
         "status":   "healthy" if pipeline is not None else ("misconfigured" if init_error else "initializing"),
         "error":    init_error,
         "model":    "qwen/qwen3-embedding-8b",
-        "llm":      "llama-3.3-70b-versatile",
+        "llm":      os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
         "version":  "2.0.0",
     }
 

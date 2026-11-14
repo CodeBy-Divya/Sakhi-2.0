@@ -1,305 +1,185 @@
----
-title: Sakhi API
-emoji: ⚖️
-colorFrom: yellow
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 <div align="center">
 
-# Sakhi -- AI Legal Companion for India
+# ⚖️ Sakhi — Production Legal RAG Architecture
 
-**Making Indian law accessible to everyone -- in simple words, without judgment.**
+**An empathetic, production-ready legal reasoning companion built with LangGraph, ChromaDB, FastAPI, and React.**
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-sakhi--alpha.vercel.app-orange?style=for-the-badge)](https://sakhi-alpha.vercel.app)
-[![Backend](https://img.shields.io/badge/Backend-Hugging_Face_Spaces-blue?style=for-the-badge)](https://huggingface.co/spaces/Hush04/sakhi-api)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+Developed & Maintained by **[Divya (CodeBy-Divya)](https://github.com/CodeBy-Divya)**
+
+[![Author](https://img.shields.io/badge/Author-CodeBy--Divya-orange?style=for-the-badge&logo=github)](https://github.com/CodeBy-Divya)
+[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![LangGraph](https://img.shields.io/badge/LangGraph-StateGraph-FF4F00?style=for-the-badge)](https://langchain-ai.github.io/langgraph/)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector_Store-red?style=for-the-badge)](https://trychroma.com)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 </div>
 
 ---
 
-## What is Sakhi?
+## 📌 What is This Architecture?
 
-Most Indians have **never spoken to a lawyer**. When legal trouble hits -- a wrongful police encounter, a harassment complaint, a landlord dispute -- they turn to Google and get buried in confusing legal jargon.
-
-**Sakhi** is an AI-powered legal companion that understands your situation in plain language (English, Hindi, or Hinglish) and explains exactly what Indian law says -- citing specific Acts and Sections -- like a knowledgeable friend sitting with you over chai.
-
-### Key Features
-
-| Feature                         | Description                                                                   |
-| ------------------------------- | ----------------------------------------------------------------------------- |
-| **Multi-turn Conversations**    | Sakhi remembers your entire conversation and builds context                   |
-| **40+ Indian Law Acts**         | Covers criminal law (BNS), civil, family, labour, tax, IT, and more           |
-| **RAG Pipeline**                | Retrieves actual legal sections from a 7,600+ chunk vector database           |
-| **Hinglish Support**            | Understands "FIR dala", "meri salary nahi mili", and Indian slang             |
-| **Empathetic & Non-judgmental** | Validates feelings first, explains law second, gives action steps third       |
-| **Smart Clarifications**        | Asks max 2 focused questions, then answers with whatever context it has       |
-| **Sensitive Topic Handling**    | POCSO, domestic violence, police rights -- explained with care, never refused |
+**Sakhi** is a specialized, multi-turn **Retrieval-Augmented Generation (RAG)** system tailored for legal information. Most individuals find statutory texts and legal terminology intimidating or inaccessible. Sakhi bridges this gap by accepting natural user queries (in English, Hindi, or Hinglish slang like *"FIR dala"* or *"salary nahi mili"*), identifying the underlying statutory domain, retrieving verbatim clauses from over 40 Indian Acts, and delivering empathetic, actionable guidance with exact legal section citations.
 
 ---
 
-## Architecture
+## 🛠️ Tools & Technologies Used
+
+| Layer | Technology | Purpose & Details |
+| :--- | :--- | :--- |
+| **Workflow & State** | **LangGraph (`CompiledStateGraph`)** | Cyclic multi-node state graph for intent detection, query rewriting, deduplication, and conditional routing. |
+| **API Server** | **FastAPI + Uvicorn** | High-performance asynchronous REST API with non-blocking thread-pool executors for heavy LLM calls, lifespan management, and dynamic CORS. |
+| **Vector Database** | **ChromaDB (`v0.6+`)** | Embedded vector database storing 7,617 legal chunks indexed with HNSW. |
+| **Vector Embeddings** | **Qwen3-Embedding-8B (via OpenRouter)** | High-dimensional multilingual text embeddings capable of capturing English, Hindi, and transliterated queries. |
+| **LLM Reasoning** | **Groq Cloud (`openai/gpt-oss-120b`)** | Ultra-low-latency statutory reasoning with fallback to `openai/gpt-oss-20b`. |
+| **Document Processing** | **PyMuPDF (`fitz`) & Text Processors** | PDF parsing, statutory section extraction, metadata tagging (Act, Category, Section Number). |
+| **Frontend UI** | **React 19 + TypeScript + Vite 6** | Fluid client interface with streaming state, auto-resizing input, and Markdown formatting. |
+| **Styling & Icons** | **Tailwind CSS + Lucide Icons** | Modern glassmorphism dark theme with responsive typography. |
+
+---
+
+## 🔄 RAG Pipeline Architecture
+
+Sakhi uses a five-stage cyclic state graph:
 
 ```mermaid
-flowchart TB
-    subgraph Frontend["React Frontend - Vercel"]
-        UI[Dark Glassmorphism UI]
-        Chat[Multi-turn Chat Interface]
-    end
+flowchart TD
+    User([User Query]) --> Node1[1. Understand Node]
+    Node1 --> CheckClarify{Need clarification / Social?}
+    CheckClarify -- "Social Query" --> NodeSocial[Social Answer]
+    CheckClarify -- "Ambiguous (< 2 asks)" --> NodeClarify[Ask Clarification]
+    CheckClarify -- "Legal Query Ready" --> Node2[2. Query Rewrite Node]
+    
+    Node2 -->|Generates 3 Angles| Node3[3. Embedder Node]
+    Node3 -->|OpenRouter API| Node4[4. ChromaDB Retrieval]
+    
+    Node4 -->|Score Filtering & Section Dedup| Node5[5. Generation Node]
+    Node5 --> Final([Empathetic Legal Advice with Citations])
+```
 
-    subgraph Backend["FastAPI Backend - HF Spaces"]
-        API["/chat Endpoint"]
+### Detailed Pipeline Stages:
 
-        subgraph LangGraph["LangGraph Pipeline - 5 Nodes"]
-            N1["1. Understand\n& Classify"]
-            N2["2. Rewrite\n3 Search Queries"]
-            N3["3. Embed\nBGE-M3"]
-            N4["4. Retrieve\nChromaDB"]
-            N5["5. Generate\nGroq LLM"]
+1. **Understand Node (`understand_query`)**:
+   - Inspects conversation history and fixes Indian slang and typos.
+   - Evaluates whether the query requires clarification (capped at a maximum of 2 clarifying questions to avoid frustrating users).
+   - Classifies non-legal social small talk to bypass retrieval.
 
-            N1 -->|Legal Query| N2 --> N3 --> N4 --> N5
-            N1 -->|Social Chat| Social["Social\nResponse"]
-            N1 -->|Clarify| Clarify["Ask Focused\nQuestion"]
-        end
-    end
+2. **Query Rewrite Node (`rewrite_query`)**:
+   - Decomposes the user's situation into 3 targeted search angles:
+     1. Formal statutory legal terminology.
+     2. Everyday plain-language query.
+     3. Specific Act and Section name candidate.
 
-    subgraph Data["Knowledge Base"]
-        PDFs["40+ Indian Law\nAct PDFs"]
-        ChromaDB["ChromaDB\n7,617 Chunks"]
-    end
+3. **Embedder Node (`embed_queries`)**:
+   - Encodes all search query vectors using OpenRouter's `qwen/qwen3-embedding-8b`.
 
-    UI --> API --> N1
-    N4 --> ChromaDB
-    PDFs -.->|Ingestion Pipeline| ChromaDB
+4. **ChromaDB Retrieval Node (`retrieve_chunks`)**:
+   - Queries ChromaDB using multi-vector similarity search ($k=8$).
+   - Deduplicates results by legal section so multiple overlapping chunks from the same statute do not crowd the prompt context.
+   - Filters out irrelevant candidates below the relevance threshold.
 
-    style Frontend fill:#1a1a2e,stroke:#f97316,color:#fff
-    style Backend fill:#16213e,stroke:#4f46e5,color:#fff
-    style Data fill:#0f172a,stroke:#22c55e,color:#fff
-    style LangGraph fill:#1e293b,stroke:#818cf8,color:#fff
+5. **Generation Node (`generate_answer`)**:
+   - Synthesizes the retrieved statutory sections through the LLM.
+   - Structures output: **Validate & Comfort** $\rightarrow$ **Legal Reality** $\rightarrow$ **Practical Next Steps** $\rightarrow$ **Exact Act & Section Citations**.
+
+---
+
+## 📂 Project Structure
+
+```text
+sakhi/
+├── data/
+│   ├── pdfs/                 # 40+ Official Indian Law Acts (BNS, Civil, Labour, etc.)
+│   └── txt/                  # Pre-extracted statutory raw text
+├── sakhi-ui/                 # React 19 + Vite 6 Frontend
+│   ├── src/
+│   │   ├── App.tsx           # Chat interface & API client
+│   │   ├── index.css         # Dark glassmorphic theme
+│   │   └── main.tsx          # Application entrypoint
+│   └── package.json
+├── src/
+│   ├── api/
+│   │   └── main.py           # FastAPI entrypoint, routes, & health checks
+│   ├── core/
+│   │   └── rag.py            # LangGraph StateGraph & prompt definitions
+│   ├── ingest/
+│   │   ├── chroma_store.py   # ChromaDB collection management
+│   │   ├── embedder.py       # Embedding generation logic
+│   │   └── loader.py         # Legal chunk loader
+│   ├── pipeline/
+│   │   ├── extract_pdfs.py   # PDF text extractor
+│   │   └── text_to_json.py   # Chunking and section metadata generator
+│   └── config.py             # System prompts, models, and thresholds
+├── .env.example              # Environment template
+├── Dockerfile                # Container definition
+├── requirements.txt          # Python dependencies
+├── run_app.ps1               # One-click Windows runner
+└── run_app.sh                # Linux/macOS runner
 ```
 
 ---
 
-## Tech Stack
+## 🚀 Quickstart Guide
 
-| Layer             | Technology                       | Purpose                                      |
-| ----------------- | -------------------------------- | -------------------------------------------- |
-| **LLM**           | Groq (`llama-3.3-70b-versatile`) | Fast inference for legal reasoning           |
-| **Embeddings**    | BGE-M3 (`BAAI/bge-m3`)           | State-of-the-art multilingual embeddings     |
-| **Vector DB**     | ChromaDB                         | Stores 7,617 law chunks with semantic search |
-| **Orchestration** | LangGraph + LangChain            | 5-node stateful RAG pipeline                 |
-| **API**           | FastAPI + Uvicorn                | Async REST API with CORS                     |
-| **Frontend**      | React 19 + Vite + Tailwind CSS 4 | Dark glassmorphism chat interface            |
-| **Animations**    | Framer Motion                    | Smooth micro-interactions                    |
-| **Observability** | LangSmith (optional)             | Trace and debug pipeline runs                |
-| **Deployment**    | Vercel (FE) + HF Spaces (BE)     | Free-tier cloud hosting                      |
+### 1. Prerequisites
+- **Python 3.10 or 3.11**
+- **Node.js 18+ & npm**
+- **Free API Keys**:
+  - [Groq API Key](https://console.groq.com)
+  - [OpenRouter API Key](https://openrouter.ai/keys)
 
----
-
-## Legal Knowledge Base
-
-Sakhi's vector database contains **40+ Indian law PDFs** covering:
-
-| Category                   | Acts Included                                                                                                                       |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **New Criminal Framework** | Bharatiya Nyaya Sanhita (BNS) 2023, Bharatiya Nagarik Suraksha Sanhita (BNSS), Bharatiya Sakshya Adhiniyam                          |
-| **Core Civil Laws**        | Indian Contract Act 1872, Code of Civil Procedure 1908, Transfer of Property Act, Limitation Act, Specific Relief Act               |
-| **Personal & Family Laws** | Hindu Marriage Act, Hindu Succession Act, Special Marriage Act, Muslim Personal Law, Domestic Violence Act, Guardians and Wards Act |
-| **Labour Codes**           | Code on Wages, Industrial Relations Code, Social Security Code, Occupational Safety Code                                            |
-| **Commercial Laws**        | Companies Act 2013, Insolvency and Bankruptcy Code, Partnership Act, Sale of Goods Act, Negotiable Instruments Act, LLP Act         |
-| **Tax & Financial**        | Income Tax Act 1961, GST Act 2017, FEMA, Prevention of Money Laundering Act                                                         |
-| **Special & Regulatory**   | Consumer Protection Act 2019, IT Act 2000, RTI Act, Motor Vehicles Act, Environmental Laws, Arbitration Act                         |
-| **Constitution**           | Constitution of India (Fundamental Rights, DPSPs, and more)                                                                         |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- **Python 3.10+**
-- **Node.js 18+**
-- **Groq API Key** (free at [console.groq.com](https://console.groq.com))
-- **OpenRouter API Key** (for embeddings, free at [openrouter.ai/keys](https://openrouter.ai/keys))
-
-### 1. Clone & Setup Backend
-
+### 2. Environment Configuration
+Copy `.env.example` to `.env` and fill in your keys:
 ```bash
-git clone https://github.com/CodeBy-Divya/Sakhi-2-.git
-cd Sakhi-2-
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy and configure your environment variables
-cp .env.example .env  # Windows: copy .env.example .env
-# Edit .env with your GROQ_API_KEY and OPENROUTER_API_KEY
+cp .env.example .env
+```
+Inside `.env`:
+```env
+GROQ_API_KEY=your_groq_api_key_here
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+GROQ_MODEL=openai/gpt-oss-120b
+PORT=8000
 ```
 
-### 2. Setup Frontend
+### 3. Running on Windows
+Execute the automated PowerShell runner:
+```powershell
+.\run_app.ps1
+```
 
+### 4. Running Manually
+
+#### Backend:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Or on Windows: .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m src.api.main
+```
+Backend will start at **http://localhost:8000** (Check `/health`).
+
+#### Frontend:
 ```bash
 cd sakhi-ui
 npm install
-cd ..
+npm run dev
 ```
-
-### 3. Run Everything
-
-```bash
-# Option A: Windows PowerShell automated script
-.\run_app.ps1
-
-# Option B: Linux / macOS automated script
-chmod +x run_app.sh
-./run_app.sh
-
-# Option C: Manual start
-# Terminal 1 -- Backend
-python -m src.api.main
-
-# Terminal 2 -- Frontend
-cd sakhi-ui && npm run dev
-```
-
-Open **http://localhost:5173** and start chatting!
+Frontend will be live at **http://localhost:5173**.
 
 ---
 
-## RAG Pipeline Details
+## ⚖️ Legal Disclaimer
 
-Sakhi uses a **5-node LangGraph pipeline** with intelligent routing:
-
-### Node 1: Understand & Classify
-
-- Parses user query, fixes typos/Hinglish
-- Classifies as `legal_query` or `social_chat`
-- Decides if clarification is needed (max 2 questions)
-- Routes: `social` -> friendly response | `clarify` -> ask question | `rewrite` -> full RAG
-
-### Node 2: Rewrite Queries
-
-- Generates **3 diverse search queries** from the understood question:
-  - Legal terminology angle
-  - Plain language angle
-  - Specific Act/Section angle
-
-### Node 3: Embed
-
-- Embeds all 3 queries using **BGE-M3** (`BAAI/bge-m3`)
-- Multilingual -- handles English, Hindi, and Hinglish natively
-
-### Node 4: Retrieve & Score
-
-- Queries ChromaDB with `top_k=8`
-- Deduplicates across all query results
-- Filters by `relevance_threshold=0.55`
-- Caps at `max_context_chunks=6` for the LLM
-
-### Node 5: Generate Answer
-
-- Uses **Groq** (`llama-3.3-70b-versatile`) with the full system prompt
-- Includes conversation history for multi-turn context
-- Falls back to `llama-3.1-8b-instant` on rate limits
-- Low-confidence path: honest "I don't have this exact section" + referral
-
----
-
-## Deployment
-
-| Component    | Platform            | URL                                                                         |
-| ------------ | ------------------- | --------------------------------------------------------------------------- |
-| **Frontend** | Vercel              | [sakhi-alpha.vercel.app](https://sakhi-alpha.vercel.app)                    |
-| **Backend**  | Hugging Face Spaces | [hush04-sakhi-api.hf.space](https://huggingface.co/spaces/Hush04/sakhi-api) |
-
-### Deploy Your Own
-
-```bash
-# Frontend -> Vercel
-# Set env: VITE_API_URL = https://your-backend-url
-
-# Backend -> HF Spaces (Docker)
-# Set secret: GROQ_API_KEY = your_key
-# Uses the included Dockerfile
-```
-
----
-
-## Project Structure
-
-```
-Sakhi/
-├── src/
-│   ├── api/
-│   │   └── main.py              # FastAPI server (/chat, /health)
-│   ├── core/
-│   │   └── rag.py               # 5-node LangGraph RAG pipeline
-│   ├── config.py                # All configuration + system prompt
-│   ├── ingest/
-│   │   ├── loader.py            # PDF -> text extraction (PyMuPDF)
-│   │   ├── embedder.py          # BGE-M3 embedding generation
-│   │   ├── chroma_store.py      # ChromaDB storage
-│   │   ├── pipeline.py          # End-to-end ingestion orchestrator
-│   │   ├── ingest_cli.py        # CLI for running ingestion
-│   │   └── query.py             # Query testing utility
-│   └── utils/
-│       └── logging_utils.py     # Centralized logging
-├── sakhi-ui/
-│   └── src/
-│       ├── App.tsx              # React chat interface
-│       └── index.css            # Dark glassmorphism theme
-├── data/
-│   ├── pdfs/                    # 40+ Indian law PDFs (8 categories)
-│   ├── txt/                     # Extracted text files
-│   ├── processed/               # Embeddings cache
-│   └── chroma_db/               # Vector database (7,617 chunks)
-├── Dockerfile                   # Docker config for HF Spaces
-├── run_app.sh                   # Automated startup script
-├── requirements.txt             # Python dependencies
-└── .env                         # API keys (not committed)
-```
-
----
-
-## Contributing
-
-Contributions are welcome! Areas where help is especially appreciated:
-
-- **Adding more law PDFs** -- State-specific laws, recent amendments
-- **Hindi/regional language UI** -- Translating the interface
-- **Test cases** -- Legal scenario test suites
-- **UI/UX improvements** -- Mobile responsiveness, accessibility
-
----
-
-## Disclaimer
-
-Sakhi is an **AI-powered legal education tool**. It provides general legal information based on Indian law to help you understand your rights. It is **NOT** a substitute for professional legal advice. For serious legal matters, always consult a qualified lawyer or contact your nearest **District Legal Services Authority** for free legal aid.
-
-**Emergency Resources:**
-
-- Police Emergency: **112**
-- Women Helpline: **181**
-- National Commission for Women: **7827-170-170**
-- Cyber Crime: **cybercrime.gov.in**
-- Free Legal Aid: **NALSA** (available in every district)
+Sakhi is designed exclusively for educational and informational purposes under Indian Law. It is not an attorney and does not establish an attorney-client relationship. For active court litigation or emergency assistance, users are guided to official free legal assistance bodies:
+- **NALSA (National Legal Services Authority)**: Free legal representation for eligible individuals across all districts in India.
+- **Police Emergency**: Dial `112`
+- **Women Helpline**: Dial `181`
 
 ---
 
 <div align="center">
 
-**Built with care for India**
-
-_Because everyone deserves to understand the law that protects them._
+**Created with ❤️ by [Divya](https://github.com/CodeBy-Divya)**
 
 </div>

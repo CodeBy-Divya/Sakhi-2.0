@@ -24,8 +24,8 @@ MAX_CONTEXT_CHUNKS = 6   # limit what actually reaches the LLM prompt
 RELEVANCE_THRESHOLD = 0.40   # lowered from 0.55 for Qwen3 embeddings
 
 # ── LLM Configuration ────────────────────────────────────────────────────
-GROQ_MODEL     = "llama-3.3-70b-versatile"
-FALLBACK_MODEL = "llama-3.1-8b-instant"     # graceful degradation on rate-limits
+GROQ_MODEL     = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "openai/gpt-oss-20b")     # graceful degradation on rate-limits
 
 # Per-node temperature tuning
 UNDERSTAND_TEMPERATURE = 0.0   # deterministic — needs reliable JSON output
